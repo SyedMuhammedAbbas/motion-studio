@@ -1,0 +1,26 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script type="module">
+// p5 example: a noise field of dashes that a spring sweep reorients. Not a real video.
+import { p5film } from '/lib/p5film.js';
+import { track } from '/lib/motion.js';
+
+p5film({
+  seed: 7,
+  draw: (p, t) => {
+    p.background('#f2efe9');
+    const sweep = track(t, [[0, 0], [0.6, 1], [2.4, 0]], 120, 22); // 0 = noise field, 1 = aligned
+    const step = p.width / 18;
+    p.stroke('#111'); p.strokeWeight(step * 0.12); p.strokeCap(p.ROUND);
+    for (let x = step / 2; x < p.width; x += step)
+      for (let y = step / 2; y < p.height; y += step) {
+        const a = p.lerp(p.noise(x * 0.004, y * 0.004, t * 0.4) * p.TWO_PI * 2, 0, sweep);
+        const r = step * 0.35;
+        p.line(x - Math.cos(a) * r, y - Math.sin(a) * r, x + Math.cos(a) * r, y + Math.sin(a) * r);
+      }
+    p.noStroke(); p.fill('#ff4d2e');
+    p.circle(p.width / 2, p.height / 2, step * 3 * (1 + sweep));
+  },
+});
+</script>

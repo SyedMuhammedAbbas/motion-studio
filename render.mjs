@@ -1,0 +1,57 @@
+// node render.mjs --dir videos/<name> [--start 0] [--fps 60] [--dur 15] [--sub 4] [--w 1080] [--h 1920] [--out silent.mp4]
+// Serves the studio root over http (ES modules don't load from file://), opens <dir>/index.html,
+// calls window.seek(t) per subframe, screenshots #c and pipes PNGs into ffmpeg (sub-frames blended = motion blur).
+import { chromium } from 'playwright';
+import { spawn } from 'node:child_process';
+import { createServer } from 'node:http';
+import { mkdirSync, readFileSync, existsSync } from 'node:fs';
+import { join, extname, resolve, relative } from 'node:path';
+
+const argv = process.argv;
+const str = (k, d) => { const i = argv.indexOf('--' + k); return i > 0 ? argv[i + 1] : d; };
+const num = (k, d) => Number(str(k, d));
+const DIR = str('dir', '.'), START = num('start', 0), FPS = num('fps', 60), DUR = num('dur', 15), SUB = num('sub', 4);
+const W = num('w', 1080), H = num('h', 1920), OUT = str('out', 'silent.mp4');
+const ROOT = resolve(import.meta.dirname);
+if (!existsSync(join(ROOT, DIR, 'index.html'))) throw new Error(`no index.html in ${DIR}`);
+
+const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.json': 'application/json',
+  '.css': 'text/css', '.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.svg': 'image/svg+xml',
+  '.webp': 'image/webp', '.woff2': 'font/woff2', '.woff': 'font/woff', '.ttf': 'font/ttf', '.otf': 'font/otf' };
+const server = createServer((req, res) => {
+  const file = resolve(ROOT, '.' + decodeURIComponent(new URL(req.url, 'http://x').pathname));
+  if (relative(ROOT, file).startsWith('..') || !existsSync(file)) { res.writeHead(404).end(); return; }
+  res.writeHead(200, { 'content-type': TYPES[extname(file).toLowerCase()] || 'application/octet-stream' });
+  res.end(readFileSync(file));
+}).listen(0, '127.0.0.1');
+await new Promise((r) => server.once('listening', r));
+const base = `http://127.0.0.1:${server.address().port}`;
+
+const outDir = join(ROOT, DIR, 'out');
+mkdirSync(outDir, { recursive: true });
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
+page.on('pageerror', (e) => { console.error('page error:', e.message); process.exitCode = 1; });
+await page.goto(`${base}/${DIR.replace(/\\/g, '/')}/index.html?w=${W}&h=${H}`);
+await page.evaluate(() => document.fonts.ready);
+await page.waitForFunction(() => typeof window.seek === 'function');
+await page.evaluate(() => window.ready); // optional promise the page sets while loading images/assets
+
+const vf = `tmix=frames=${SUB},select='eq(mod(n\\,${SUB})\\,${SUB - 1})',setpts=N/${FPS}/TB`;
+const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-framerate', String(FPS * SUB), '-i', '-',
+  '-vf', vf, '-r', String(FPS), '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', join(outDir, OUT)],
+  { stdio: ['pipe', 'inherit', 'inherit'] });
+
+const total = Math.round(DUR * FPS * SUB);
+for (let i = 0; i < total; i++) {
+  await page.evaluate((t) => window.seek(t), START + i / (FPS * SUB));
+  const png = await page.locator('#c').screenshot({ type: 'png' });
+  if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once('drain', r));
+  if (i % (FPS * SUB) === 0) console.log(`rendered ${i / (FPS * SUB)}s / ${DUR}s`);
+}
+ff.stdin.end();
+const code = await new Promise((r) => ff.on('close', r));
+await browser.close();
+server.close();
+if (code !== 0) throw new Error(`ffmpeg exited ${code}`);
+console.log(`wrote ${join(DIR, 'out', OUT)}`);

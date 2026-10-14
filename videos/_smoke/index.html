@@ -1,0 +1,18 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<canvas id="c"></canvas>
+<script type="module">
+// Pipeline smoke test: a square springs across the frame. Not a real video.
+import { track } from '/lib/motion.js';
+const q = new URLSearchParams(location.search), W = +q.get('w') || 1080, H = +q.get('h') || 1920;
+const c = document.getElementById('c'); c.width = W; c.height = H;
+const g = c.getContext('2d');
+window.seek = (t) => {
+  g.fillStyle = '#f2efe9'; g.fillRect(0, 0, W, H);
+  const x = track(t, [[0, W * 0.2], [0.3, W * 0.8], [1.2, W * 0.2]]);
+  const s = track(t, [[0, 80], [0.3, 200], [1.2, 80]], 300, 22);
+  g.fillStyle = '#ff4d2e'; g.fillRect(x - s / 2, H / 2 - s / 2, s, s);
+};
+window.seek(0);
+</script>

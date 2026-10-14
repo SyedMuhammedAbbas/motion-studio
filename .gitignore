@@ -1,0 +1,8 @@
+node_modules/
+.venv/
+.env
+# Videos are private work; only the bundled examples are tracked.
+videos/*
+!videos/_smoke/
+!videos/_p5/
+videos/*/out/
