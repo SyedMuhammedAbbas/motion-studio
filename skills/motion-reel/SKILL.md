@@ -1,6 +1,6 @@
 ---
 name: motion-reel
-description: Make a motion graphics video rendered from code in the studio at D:\Projects\Motion. Use whenever the user asks for any video, launch video, product video, showreel, product reel, animated explainer, motion ad, social clip, kinetic typography, logo animation or music-synced animation, from any project or session.
+description: Make a motion graphics video rendered from code in the studio at D:\Projects\Motion. Use whenever the user asks for any video, launch video, product video, showreel, product reel, animated explainer, motion ad, social clip, kinetic typography, logo animation, music-synced animation, animated chart, milestone or number reveal, Vox-style explainer, Apple-style launch film, 3D title or cinematic opener, newsletter promo, looping GIF cover, motion effect, or a 9:16 reel/TikTok re-cut, from any project or session.
 ---
 
 # Motion reel
@@ -29,6 +29,35 @@ Studio: `D:\Projects\Motion`. Read its `CLAUDE.md` first (render contract, banne
    Open the images and judge as a harsh motion director. Score: hook in first 2s, readability at phone size, motion quality, variety, composition, brand accuracy, sound sync. Hunt for: overlapping text during swaps, sliding instead of springing, corner labels/frame borders, centered-on-gradient shots, blurry scaled text, dead beats, a stutter at the loop seam. Fix the 3 worst, re-render, repeat.
 8. Final: `node render.mjs --dir videos/<name> --dur <s>` (60 fps, 4 subframes) per format with `--w/--h --out silent_<fmt>.mp4`. Mix audio to -14 LUFS and mux into `out/final.mp4` (and `final_<fmt>.mp4`). Poster: `ffmpeg -y -ss <best t> -i out/final.mp4 -frames:v 1 out/poster.png`. Loop check if it loops: `ffmpeg -y -stream_loop 1 -i out/final.mp4 -c copy out/loop_check.mp4`.
 9. Deliver: paths to final MP4(s), contact.png, poster.png, the final scores, and what you would improve next. Verify each file exists (ffprobe duration/resolution) before saying it is done.
+
+## Recipes (charlie947/motion-graphics-skills, vendored)
+`D:\Projects\Motion\recipes\motion-graphics-skills\skills\<name>\SKILL.md`. These are reference, not installed skills. When a request matches one, read it after the inputs step and use its structure, look, beat timing, facts rules and checks. Build and render through this pipeline.
+
+| Request | Recipe |
+|---|---|
+| Brand system for a client (colors, type, motion rules) | `brand-intake` (write `brand.md` + `MOTION.md` into `videos/<name>/docs/`, never edit CLAUDE.md) |
+| Product/offer/cohort launch, 30-45s | `launch-video` |
+| Apple keynote / Mac-style launch | `apple-launch-film` |
+| Documentary explainer (Vox style) | `vox-explainer` |
+| Animated chart or stat | `animated-chart` |
+| Milestone / big number reveal | `milestone-reveal` |
+| A single effect (button to player, glass focus, chart morph, spring stack, particle logo...) | `motion-effects` + `references/effects.md` |
+| 3D cinematic opener | `title-sequence-3d` |
+| Newsletter or edition promo | `newsletter-promo` |
+| Looping GIF cover | `loop-cover` |
+| Re-cut any video to 9:16 Reel/TikTok | `reel-export` |
+| Same brief, several AI models compared | `model-showdown` |
+| Break down a reference video / write a brief or prompt | `reference-to-motion`, `motion-brief-writer`, `motion-prompt-writer` |
+
+Where a recipe conflicts with this studio, the studio wins:
+- Render with `render.mjs`, not HyperFrames. Recipe pages may be DOM/CSS (render.mjs captures the viewport when there is no `#c`, and passes `?render=1` so autoplay must stop there). Use `?w=&h=` for size and `window.ready`, not `window.__ready`.
+- 60 fps with sub-frame blur by default. A recipe look that is stepped "on twos" (vox-explainer) renders with `--fps 24 --sub 1` and quantizes t to 1/12 s inside seek.
+- Springs from lib/motion.js replace any ease curve; no overshoot on type.
+- Real product UI only. A recipe's code-drawn device chrome (menu bar, notch, generic frame) is fine; the product's own screens must be real screenshots.
+- Our banned list holds: no glow on UI, no corner labels, no fade-everything. Intentional particle formations (milestone-reveal, particle logo) are allowed; random bursts are not.
+- Keep the shot-list OK gate even where a recipe says to build straight away.
+- Never install HyperFrames, apple-design, Three.js or anything else a recipe mentions without the owner's yes (tool-vetting). Prefer a local copy of Three.js in `node_modules` over a CDN.
+- Adopt the recipe's facts-first rule: every name, number and date on screen comes from a list the user approved.
 
 ## Long films (music video, story, 60s+)
 Treat as a multi-session production. Write a director's brief in `docs/brief.md` (logline, references, look, beat sheet, gates, deliverables), then gates: shot list → stills per shot + contact sheet → low-res rough cut with placeholder audio (fix pacing) → full animation → polish → sound → render. Write `docs/ANIMATION_GUIDE.md` before splitting chapters across `engineer` subagents so they share one style.

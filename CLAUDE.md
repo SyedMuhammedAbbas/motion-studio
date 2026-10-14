@@ -9,7 +9,8 @@ Code-rendered motion graphics. Every video is a web page that paints any frame o
 - Keep one session per brand when possible; reuse that video folder's assets and music for follow-ups.
 
 ## Render contract
-- Every film is a pure function of time: `window.seek(t)` paints frame t onto `<canvas id="c">` sized from the `?w=&h=` query params.
+- Every film is a pure function of time: `window.seek(t)` paints frame t onto `<canvas id="c">` sized from the `?w=&h=` query params. A DOM/CSS page without `#c` is allowed (render.mjs captures the whole viewport); render mode adds `?render=1`.
+- Recipes for specific formats live in `recipes/motion-graphics-skills/` (see the motion-reel skill for when to use which, and which rules win).
 - No CSS transitions, no setTimeout, no requestAnimationFrame in render mode, no state carried between frames. Seeded noise only (`rng()` from lib/motion.js), never Math.random.
 - If the page loads images or other assets, set `window.ready` to a promise that resolves when they are loaded.
 - p5.js (2.x, for generative and drawing-heavy shots): use `p5film({ setup, draw, seed })` from `/lib/p5film.js`, never p5's own loop. `draw(p, t)` must depend only on `t` (no `frameCount`, `millis()`, `deltaTime`); random/noise are reseeded every frame. Load fonts/images in the async `setup`. Example: `videos/_p5`.

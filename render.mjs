@@ -32,7 +32,9 @@ mkdirSync(outDir, { recursive: true });
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: W, height: H }, deviceScaleFactor: 1 });
 page.on('pageerror', (e) => { console.error('page error:', e.message); process.exitCode = 1; });
-await page.goto(`${base}/${DIR.replace(/\\/g, '/')}/index.html?w=${W}&h=${H}`);
+await page.goto(`${base}/${DIR.replace(/\\/g, '/')}/index.html?w=${W}&h=${H}&render=1`);
+// Canvas films draw on #c; DOM/CSS pages (recipes) are captured as the whole viewport.
+const shot = (await page.$('#c')) ? page.locator('#c') : page;
 await page.evaluate(() => document.fonts.ready);
 await page.waitForFunction(() => typeof window.seek === 'function');
 await page.evaluate(() => window.ready); // optional promise the page sets while loading images/assets
@@ -45,7 +47,7 @@ const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-fr
 const total = Math.round(DUR * FPS * SUB);
 for (let i = 0; i < total; i++) {
   await page.evaluate((t) => window.seek(t), START + i / (FPS * SUB));
-  const png = await page.locator('#c').screenshot({ type: 'png' });
+  const png = await shot.screenshot({ type: 'png' });
   if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once('drain', r));
   if (i % (FPS * SUB) === 0) console.log(`rendered ${i / (FPS * SUB)}s / ${DUR}s`);
 }

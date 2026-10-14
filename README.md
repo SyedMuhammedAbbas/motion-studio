@@ -84,10 +84,15 @@ lib/motion.js           spring(), track(), clamp(), rng()
 lib/p5film.js           p5.js adapter for the render contract
 lib/motion.test.mjs     self-check for motion.js
 skills/motion-reel/     the Claude Code skill
+recipes/                format recipes (vendored charlie947/motion-graphics-skills, MIT)
 videos/_smoke/          minimal canvas example
 videos/_p5/             minimal p5.js example
 videos/<name>/          one folder per video (ignored by git): index.html, assets/, audio/, refs/, docs/, out/
 ```
+
+## Recipes
+
+`recipes/motion-graphics-skills/` is an unmodified copy of [charlie947/motion-graphics-skills](https://github.com/charlie947/motion-graphics-skills) (MIT, by Charlie Hills). The skills are not installed. The `motion-reel` skill reads the matching one (launch video, Vox-style explainer, animated chart, milestone reveal, 3D title, 16 motion effects, loop GIF, reel export and more) for its structure and checks, then builds and renders with this studio's pipeline and rules. The skill lists which rules win where the two differ.
 
 ## Writing a page by hand
 
@@ -123,7 +128,9 @@ p5film({
 </script>
 ```
 
-Rules for both: the frame depends only on `t`. No CSS transitions, timers, `requestAnimationFrame`, `Math.random`, or p5's `frameCount`/`millis()`. Use `rng(seed)` from `lib/motion.js` or p5's `random()`/`noise()` (reseeded every frame by `p5film`). If the page loads images or fonts, set `window.ready` to a promise (in p5, load them in an async `setup`).
+A page can also be plain HTML/CSS with `window.seek(t)` setting styles and no `#c` canvas; `render.mjs` then captures the whole viewport and adds `?render=1` to the URL.
+
+Rules for all of them: the frame depends only on `t`. No CSS transitions, timers, `requestAnimationFrame`, `Math.random`, or p5's `frameCount`/`millis()`. Use `rng(seed)` from `lib/motion.js` or p5's `random()`/`noise()` (reseeded every frame by `p5film`). If the page loads images or fonts, set `window.ready` to a promise (in p5, load them in an async `setup`).
 
 `track(t, [[time, value], ...])` stacks one damped spring per change, so a value can move between many targets and any frame still renders instantly.
 
