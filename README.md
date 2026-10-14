@@ -160,3 +160,7 @@ ffmpeg -y -i out/silent.mp4 -vf "fps=1,scale=360:-1,tile=5x3" -frames:v 1 out/ph
 ## Music and assets
 
 Only use music you have the rights to; code-synthesized music is the safe default. Use a client's logos, screenshots and footage only with their permission. Keep API keys (for example a voiceover service) in `.env`, which is git-ignored.
+
+## License
+
+[MIT](LICENSE). p5.js and Playwright are installed as dependencies under their own licenses (LGPL-2.1 and Apache-2.0).

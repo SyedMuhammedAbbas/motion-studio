@@ -1,6 +1,7 @@
 {
   "name": "motion-studio",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
     "p5": "2.3.4",
