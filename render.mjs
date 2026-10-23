@@ -44,9 +44,16 @@ const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-fr
   '-vf', vf, '-r', String(FPS), '-c:v', 'libx264', '-crf', '16', '-pix_fmt', 'yuv420p', join(outDir, OUT)],
   { stdio: ['pipe', 'inherit', 'inherit'] });
 
+// Sub-frame blur must not blend across a hard cut (it leaves a one-frame ghost of both shots).
+// A page lists its cut times in window.hardCuts; a frame whose sub-frames straddle one renders all of them after the cut.
+const hardCuts = await page.evaluate(() => window.hardCuts || []);
 const total = Math.round(DUR * FPS * SUB);
 for (let i = 0; i < total; i++) {
-  await page.evaluate((t) => window.seek(t), START + i / (FPS * SUB));
+  let t = START + i / (FPS * SUB);
+  const k = Math.floor(i / SUB), f0 = START + (k * SUB) / (FPS * SUB), f1 = START + (k * SUB + SUB - 1) / (FPS * SUB);
+  const c = hardCuts.find((c) => c > f0 && c <= f1);
+  if (c !== undefined && t < c) t = f1;
+  await page.evaluate((t) => window.seek(t), t);
   const png = await shot.screenshot({ type: 'png' });
   if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once('drain', r));
   if (i % (FPS * SUB) === 0) console.log(`rendered ${i / (FPS * SUB)}s / ${DUR}s`);
