@@ -1,0 +1,20 @@
+{
+  "name": "motion-studio-remotion",
+  "private": true,
+  "scripts": {
+    "studio": "remotion studio src/index.ts",
+    "render": "remotion render src/index.ts",
+    "still": "remotion still src/index.ts"
+  },
+  "dependencies": {
+    "@remotion/cli": "4.0.538",
+    "@remotion/motion-blur": "4.0.538",
+    "react": "19.1.10",
+    "react-dom": "19.1.10",
+    "remotion": "4.0.538"
+  },
+  "devDependencies": {
+    "@types/react": "19.1.10",
+    "typescript": "5.6.3"
+  }
+}

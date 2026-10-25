@@ -1,6 +1,6 @@
 // Smoothness and layout QA for a reel page that exposes window.qa() -> { face, win, boxes, framing } (1080-wide layout units).
 // node tools/talk/qa.mjs --dir videos/<client>/<reel> --dur <s>   (--dir: absolute or relative to the cwd, inside the studio root)
-// Fails (exit 1) when: a text/graphic box overlaps the face; the head (face + 60% headroom) leaves the window;
+// Fails (exit 1) when: the picture sits frozen longer than --hold s (default 0.5); a text/graphic box overlaps the face; the head (face + 60% headroom) leaves the window;
 // a cut changes the framing by 3-25% (too small to read as a new shot, too big to go unnoticed).
 import { chromium } from 'playwright';
 import { createServer } from 'node:http';
@@ -23,13 +23,14 @@ await new Promise((r) => server.once('listening', r));
 const browser = await chromium.launch();
 const page = await browser.newPage({ viewport: { width: 540, height: 960 } });
 await page.goto(`http://127.0.0.1:${server.address().port}/${DIR.replace(/\\/g, '/')}/index.html?w=540&h=960&render=1`);
-await page.waitForFunction(() => typeof window.seek === 'function' && typeof window.qa === 'function');
+await page.waitForFunction(() => typeof window.seek === 'function');
+const HAS_QA = await page.evaluate(() => typeof window.qa === 'function'); // older reels have no qa(): only the frozen-picture check runs
 await page.evaluate(() => window.ready);
 const cuts = JSON.parse(readFileSync(join(ROOT, DIR, 'docs/cuts.json'), 'utf8')).map((c) => c.t).filter((t) => t > 0);
 
 const overlap = (a, b) => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 const problems = [];
-const at = async (t) => { await page.evaluate((t) => window.seek(t), t); return page.evaluate(() => window.qa()); };
+const at = async (t) => { await page.evaluate((t) => window.seek(t), t); return HAS_QA ? page.evaluate(() => window.qa()) : null; };
 for (let t = 0; t < DUR; t += STEP) {
   const q = await at(t);
   if (!q) continue;
@@ -42,7 +43,7 @@ for (let t = 0; t < DUR; t += STEP) {
 }
 // any instant framing change, cut or not (a push-in mid-shot is a cut too)
 let prev = null;
-for (let t = 0; t < DUR; t += 1 / 30) {
+for (let t = 0; HAS_QA && t < DUR; t += 1 / 30) {
   const fr = (await at(t)).framing;
   if (prev) {
     const d = Math.max(Math.abs(fr.zoom - prev.zoom) / Math.max(fr.zoom, prev.zoom), Math.abs(fr.cx - prev.cx) / (1080 / prev.zoom));
@@ -50,8 +51,25 @@ for (let t = 0; t < DUR; t += 1 / 30) {
   }
   prev = fr;
 }
+// frozen picture: consecutive 30 fps frames with no pixel change for longer than --hold seconds (a talking reel should never sit still)
+const HOLD = +arg('hold', 0.5);
+let last = null, runStart = 0;
+const flush = (t) => { if (last && t - runStart > HOLD) problems.push(`${runStart.toFixed(2)}s picture frozen for ${(t - runStart).toFixed(2)}s (limit ${HOLD}s)`); };
+for (let t = 0; t < DUR; t += 1 / 30) {
+  await page.evaluate((t) => window.seek(t), t);
+  const px = await page.evaluate(() => {
+    const c = document.getElementById('c'), o = document.createElement('canvas');
+    o.width = 54; o.height = 96;
+    const x = o.getContext('2d'); x.drawImage(c, 0, 0, 54, 96);
+    return Array.from(x.getImageData(0, 0, 54, 96).data);
+  });
+  const diff = last ? px.reduce((s, v, i) => s + Math.abs(v - last[i]), 0) / px.length : 99;
+  if (diff > 0.3) { flush(t); runStart = t; }
+  last = px;
+}
+flush(DUR);
 const cutReport = [];
-for (const c of cuts) {
+for (const c of HAS_QA ? cuts : []) {
   const a = (await at(c - 0.05)).framing, b = (await at(c + 0.05)).framing;
   const d = Math.max(Math.abs(b.zoom - a.zoom) / Math.max(a.zoom, b.zoom), Math.abs(b.cx - a.cx) / (1080 / a.zoom));
   cutReport.push(`${c.toFixed(2)}s ${(d * 100).toFixed(1)}%`);

@@ -8,6 +8,10 @@ Code-rendered motion graphics. Every video is a web page that paints any frame o
 - Pages import the engine by absolute path: `import { spring, track } from '/lib/motion.js'` (render.mjs serves the studio root over http).
 - Keep one session per brand when possible; reuse that video folder's assets and music for follow-ups.
 
+## Launch videos (Remotion)
+- Launch films, product announcements and brand films follow `recipes/launch-director.md` (analysis, storyboard approval, design system, QA report) and are built in Remotion in `remotion/` (`npx remotion studio src/index.ts` to preview, `npx remotion render src/index.ts <id> out/<id>.mp4` to render). Remotion is free only for individuals and companies of up to 3 employees; check the licence per client.
+- The look, sound and smoothness rules in this file still apply. Talk-to-reels and the older films stay on `render.mjs`.
+
 ## Render contract
 - Every film is a pure function of time: `window.seek(t)` paints frame t onto `<canvas id="c">` sized from the `?w=&h=` query params. A DOM/CSS page without `#c` is allowed (render.mjs captures the whole viewport); render mode adds `?render=1`.
 - Recipes for specific formats live in `recipes/motion-graphics-skills/` (see the motion-reel skill for when to use which, and which rules win).

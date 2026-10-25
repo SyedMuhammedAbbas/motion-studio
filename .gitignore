@@ -10,3 +10,10 @@ videos/*
 !videos/_p5/
 videos/*/out/
 __pycache__/
+remotion/out/
+# Remotion client work stays local; only the motion system and the smoke test are public.
+remotion/public/*
+remotion/src/brands/*
+remotion/src/videos/*
+!remotion/src/videos/smoke/
+remotion/src/Root.tsx

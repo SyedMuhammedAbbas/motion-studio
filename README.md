@@ -84,7 +84,13 @@ lib/motion.js           spring(), track(), clamp(), rng()
 lib/p5film.js           p5.js adapter for the render contract
 lib/motion.test.mjs     self-check for motion.js
 skills/motion-reel/     the Claude Code skill
-recipes/                format recipes (vendored charlie947/motion-graphics-skills, MIT)
+recipes/                format recipes (vendored charlie947/motion-graphics-skills, MIT) and launch-director.md
+remotion/               Remotion project for launch films: src/system/ (shared motion system), qa/ (automated checks)
+tools/talk/             talk-to-reels pipeline: transcribe, cut, track, matte, audio, QA
+tools/voice/            Fish Audio text-to-speech (optional)
+tools/still.mjs         render chosen moments of a page as PNG stills
+tools/sheet.sh          tile stills into a contact sheet
+docs/research/          background research (launch-film reference spec, faceless avatar options)
 videos/_smoke/          minimal canvas example
 videos/_p5/             minimal p5.js example
 videos/<name>/          one folder per video (ignored by git): index.html, assets/, audio/, refs/, docs/, out/
@@ -93,6 +99,27 @@ videos/<name>/          one folder per video (ignored by git): index.html, asset
 ## Recipes
 
 `recipes/motion-graphics-skills/` is an unmodified copy of [charlie947/motion-graphics-skills](https://github.com/charlie947/motion-graphics-skills) (MIT, by Charlie Hills). The skills are not installed. The `motion-reel` skill reads the matching one (launch video, Vox-style explainer, animated chart, milestone reveal, 3D title, 16 motion effects, loop GIF, reel export and more) for its structure and checks, then builds and renders with this studio's pipeline and rules. The skill lists which rules win where the two differ.
+
+## Launch films in Remotion
+
+Launch films, product announcements and brand films follow `recipes/launch-director.md` and are built in [Remotion](https://www.remotion.dev) under `remotion/`. Everything else stays on `render.mjs`.
+
+```bash
+cd remotion
+npm ci
+cp src/Root.example.tsx src/Root.tsx
+npx remotion studio src/index.ts
+npx remotion render src/index.ts smoke out/smoke.mp4
+```
+
+`src/Root.tsx`, `src/brands/`, `public/` and every `src/videos/` folder except `smoke` are git-ignored, so client work never reaches the repo. Add one `<Composition>` per video to your local `Root.tsx`.
+
+Remotion is free for individuals, non-profits and companies of up to 3 employees; larger companies need a Remotion Company Licence. Check which applies before client work.
+
+## Talk-to-reels and voice (optional)
+
+- `tools/talk/` turns a long talking-head recording into short reels. Each script's first lines document its inputs. It needs a Python venv with `faster-whisper`, `onnxruntime` and `numpy`, plus the ONNX models listed in `models/README.md`. The smoothness rules and the QA gate (`node tools/talk/qa.mjs`) are in `CLAUDE.md`.
+- `tools/voice/fish_tts.py` makes a voiceover with Fish Audio. It needs the `fishaudio` Python package and `FISH_API_KEY` in `.env`.
 
 ## Writing a page by hand
 
