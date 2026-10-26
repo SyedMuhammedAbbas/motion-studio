@@ -47,12 +47,23 @@ const ff = spawn('ffmpeg', ['-y', '-loglevel', 'error', '-f', 'image2pipe', '-fr
 // Sub-frame blur must not blend across a hard cut (it leaves a one-frame ghost of both shots).
 // A page lists its cut times in window.hardCuts; a frame whose sub-frames straddle one renders all of them after the cut.
 const hardCuts = await page.evaluate(() => window.hardCuts || []);
+// Optional window.motion(t0, t1): max on-screen travel in px during one frame's shutter. A frame under 1 px is
+// captured once and repeated SUB times (same result after blending, SUB times faster on holds).
+const hasMotion = await page.evaluate(() => typeof window.motion === 'function');
 const total = Math.round(DUR * FPS * SUB);
 for (let i = 0; i < total; i++) {
   let t = START + i / (FPS * SUB);
   const k = Math.floor(i / SUB), f0 = START + (k * SUB) / (FPS * SUB), f1 = START + (k * SUB + SUB - 1) / (FPS * SUB);
   const c = hardCuts.find((c) => c > f0 && c <= f1);
   if (c !== undefined && t < c) t = f1;
+  if (hasMotion && SUB > 1 && i % SUB === 0 && (await page.evaluate(([a, b]) => window.motion(a, b), [f0, f1])) < 1) {
+    await page.evaluate((t) => window.seek(t), f1);
+    const png = await shot.screenshot({ type: 'png' });
+    for (let s = 0; s < SUB; s++) if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once('drain', r));
+    if (i % (FPS * SUB) === 0) console.log(`rendered ${i / (FPS * SUB)}s / ${DUR}s`);
+    i += SUB - 1;
+    continue;
+  }
   await page.evaluate((t) => window.seek(t), t);
   const png = await shot.screenshot({ type: 'png' });
   if (!ff.stdin.write(png)) await new Promise((r) => ff.stdin.once('drain', r));

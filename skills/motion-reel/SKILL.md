@@ -56,8 +56,22 @@ Where a recipe conflicts with this studio, the studio wins:
 - Real product UI only. A recipe's code-drawn device chrome (menu bar, notch, generic frame) is fine; the product's own screens must be real screenshots.
 - Our banned list holds: no glow on UI, no corner labels, no fade-everything. Intentional particle formations (milestone-reveal, particle logo) are allowed; random bursts are not.
 - Keep the shot-list OK gate even where a recipe says to build straight away.
-- Never install HyperFrames, apple-design, Three.js or anything else a recipe mentions without the owner's yes (tool-vetting). Prefer a local copy of Three.js in `node_modules` over a CDN.
+- Never install apple-design, Three.js, another HyperFrames version or anything else a recipe mentions without the owner's yes (tool-vetting). Prefer a local copy of Three.js in `node_modules` over a CDN.
 - Adopt the recipe's facts-first rule: every name, number and date on screen comes from a list the user approved.
+
+## More recipes (vendored references, same "studio wins" rules)
+All under `D:\Projects\Motion\recipes\`; each folder's `SOURCE.md` says what was kept and what is overridden.
+| When | Read |
+|---|---|
+| Every film: continuity across cuts, rhythm numbers, framing check, adaptive shutter | `carry-and-rhythm.md` (ours) |
+| Picking a look: 59 named styles with fixed rules (paper, cel, news package, 3D, CRT...) | `lemo-opuscar/styles/<slug>/STYLE.md` (+ `DEMO.md`); index in `styles/README.md` |
+| Directing a film: benchmark first, 3 candidate structures, native move at the peak, silences before the turn, cue map, reading time = letters / 15 + 1.5 s | `lemo-opuscar/DIRECTOR.md`, `TECHNIQUE.md` |
+| Wordless metaphor b-roll per voiceover line (paper collage assembling) | `collage-broll/SKILL.md` (build in code; no paid generators without a yes) |
+| Hand-painted / ink / watercolour character animation, boiling linework | `claude-animation-base/ANIMATION_GUIDE.md`; template `videos/_brush` (p5film + p5.brush) |
+| A named visual block (transition, overlay, title, kinetic type, chart, map, 3D, camera move) before hand-building it | `hyperframes-skills/skills/hyperframes-registry/`; craft refs in `skills/hyperframes/references/` |
+| Porting a Remotion film or block | `hyperframes-skills/skills/remotion-to-hyperframes/` |
+
+HyperFrames CLI (pinned 0.8.149) lives in `D:\Projects\Motion\hyperframes\`; use it from there with `npx --no-install hyperframes ...` for `catalog`, `add` (port the block into our page afterwards) and `check`. Telemetry stays off: set `HYPERFRAMES_NO_TELEMETRY=1 DO_NOT_TRACK=1 HYPERFRAMES_SKIP_SKILLS=1 HYPERFRAMES_NO_UPDATE_CHECK=1` on every call. Never run `feedback`, `usage`, `init` without `--skip-skills`, or any media-use script; never let it read the studio `.env`. Final renders still go through `render.mjs` (or Remotion for launch films).
 
 ## Craft case law (vibegameengine/video-motion-craft, vendored docs)
 `D:\Projects\Motion\recipes\video-motion-craft\references\`. Read for every reel and every footage edit:

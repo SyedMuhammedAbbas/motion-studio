@@ -84,7 +84,8 @@ lib/motion.js           spring(), track(), clamp(), rng()
 lib/p5film.js           p5.js adapter for the render contract
 lib/motion.test.mjs     self-check for motion.js
 skills/motion-reel/     the Claude Code skill
-recipes/                format recipes (vendored charlie947/motion-graphics-skills, MIT) and launch-director.md
+recipes/                format recipes: vendored references (see Recipes) plus our own notes
+hyperframes/            pinned HyperFrames CLI (block catalog, add, check)
 remotion/               Remotion project for launch films: src/system/ (shared motion system), qa/ (automated checks)
 tools/talk/             talk-to-reels pipeline: transcribe, cut, track, matte, audio, QA
 tools/voice/            Fish Audio text-to-speech (optional)
@@ -93,12 +94,34 @@ tools/sheet.sh          tile stills into a contact sheet
 docs/research/          background research (launch-film reference spec, faceless avatar options)
 videos/_smoke/          minimal canvas example
 videos/_p5/             minimal p5.js example
+videos/_brush/          hand-painted p5.brush template (24 fps on twos)
 videos/<name>/          one folder per video (ignored by git): index.html, assets/, audio/, refs/, docs/, out/
 ```
 
 ## Recipes
 
 `recipes/motion-graphics-skills/` is an unmodified copy of [charlie947/motion-graphics-skills](https://github.com/charlie947/motion-graphics-skills) (MIT, by Charlie Hills). The skills are not installed. The `motion-reel` skill reads the matching one (launch video, Vox-style explainer, animated chart, milestone reveal, 3D title, 16 motion effects, loop GIF, reel export and more) for its structure and checks, then builds and renders with this studio's pipeline and rules. The skill lists which rules win where the two differ.
+
+Other vendored references, each with a `SOURCE.md` (commit, licence, what was kept and what is overridden). None is installed as a skill:
+
+| Folder | Source | Licence | Used for |
+|---|---|---|---|
+| `recipes/lemo-opuscar/` | [lemomo-ai/lemo-opuscar](https://github.com/lemomo-ai/lemo-opuscar) @ 413a6bd, docs and 59 style prompts only | MIT | Directing method and named looks |
+| `recipes/hyperframes-skills/` | [heygen-com/hyperframes](https://github.com/heygen-com/hyperframes) @ v0.8.149, 4 skills + media-use references | Apache-2.0 | Block catalog, craft references, Remotion porting |
+| `recipes/collage-broll/` | [MegaTroll222/VOX-COLLAGE-BROLL](https://github.com/MegaTroll222/VOX-COLLAGE-BROLL) @ 2e9b8a9 | MIT | Paper-collage metaphor b-roll, built in code |
+| `recipes/claude-animation-base/` | [JohnHeibel/ClaudeAnimationBase](https://github.com/JohnHeibel/ClaudeAnimationBase) @ 0ac8bf2 | MIT | Hand-painted character animation guide; working template in `videos/_brush` |
+
+`recipes/carry-and-rhythm.md` is our own note on continuity across cuts, rhythm numbers, framing checks and the adaptive shutter (`window.motion`).
+
+### HyperFrames CLI
+
+```bash
+cd hyperframes
+npm ci
+npx hyperframes telemetry disable
+```
+
+Set `HYPERFRAMES_NO_TELEMETRY=1`, `DO_NOT_TRACK=1`, `HYPERFRAMES_SKIP_SKILLS=1` and `HYPERFRAMES_NO_UPDATE_CHECK=1` when you run it. The studio uses it for `catalog`, `add` and `check`; final renders still go through `render.mjs`. Its media-use scripts are not vendored (they call paid APIs, read `.env` and install Python packages).
 
 ## Launch films in Remotion
 

@@ -1,0 +1,7 @@
+{
+  "name": "motion-studio-hyperframes",
+  "private": true,
+  "devDependencies": {
+    "hyperframes": "0.8.149"
+  }
+}

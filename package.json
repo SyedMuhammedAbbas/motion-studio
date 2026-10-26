@@ -5,6 +5,7 @@
   "type": "module",
   "devDependencies": {
     "p5": "2.3.4",
+    "p5.brush": "2.2.3",
     "playwright": "1.63.0"
   }
 }

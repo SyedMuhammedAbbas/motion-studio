@@ -8,6 +8,7 @@ models/*
 videos/*
 !videos/_smoke/
 !videos/_p5/
+!videos/_brush/
 videos/*/out/
 __pycache__/
 remotion/out/

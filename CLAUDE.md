@@ -17,7 +17,9 @@ Code-rendered motion graphics. Every video is a web page that paints any frame o
 - Recipes for specific formats live in `recipes/motion-graphics-skills/` (see the motion-reel skill for when to use which, and which rules win).
 - No CSS transitions, no setTimeout, no requestAnimationFrame in render mode, no state carried between frames. Seeded noise only (`rng()` from lib/motion.js), never Math.random.
 - If the page loads images or other assets, set `window.ready` to a promise that resolves when they are loaded.
+- Optional `window.motion(t0, t1)`: the largest on-screen travel in px during one frame's shutter. render.mjs captures frames under 1 px once instead of `--sub` times (holds render fast, same output). Return a larger number when unsure. See `recipes/carry-and-rhythm.md`.
 - p5.js (2.x, for generative and drawing-heavy shots): use `p5film({ setup, draw, seed })` from `/lib/p5film.js`, never p5's own loop. `draw(p, t)` must depend only on `t` (no `frameCount`, `millis()`, `deltaTime`); random/noise are reseeded every frame. Load fonts/images in the async `setup`. Example: `videos/_p5`.
+- Hand-painted look (watercolour, ink, paper grain; adapted from ClaudeAnimationBase, MIT): copy `videos/_brush`. It uses p5.brush via `import { brush } from '/lib/p5brush.js'` with `p5film({ webgl: true, ... })`, boils linework 12 times a second with `boilSeed(key)` before each element, and moves on twos. Use it for illustrated, storybook or doodle shots, not for UI or type. Render at 24 fps on twos: `--fps 24 --sub 1`.
 - Render: `node render.mjs --dir videos/<name> --dur <s> [--fps 60 --sub 4 --w 1080 --h 1920]` writes `videos/<name>/out/silent.mp4`. H.264 yuv420p, CRF 16.
 - Use `--fps 30 --sub 1` (and half size) for drafts and rough cuts; full settings only for the final.
 

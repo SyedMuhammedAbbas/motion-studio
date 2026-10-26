@@ -1,0 +1,3 @@
+Vendored from https://github.com/MegaTroll222/VOX-COLLAGE-BROLL at commit 2e9b8a9 (2026-07-17). MIT. SKILL.md, README.md, LICENSE only (example media excluded).
+
+Studio override: use the metaphor gate, colour meanings, assembly order and QA. Build the collage in code (cut-out PNGs, spring slide-ins, on twos via --fps 24 --sub 1 with t quantised to 1/12 s). Do not install its curl/MCP steps; MaxFusion or any paid image/video generator only with the owner's explicit yes and a per-batch cost approval. Cut-out photos must be commercially licensed and logged in docs/credits.md. Write inside videos/<name>/, never ~/collage-broll-projects.

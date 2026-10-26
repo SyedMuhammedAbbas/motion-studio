@@ -1,0 +1,209 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script type="module">
+// Hand-painted template: p5.brush watercolour and ink on paper, linework that boils 12 times a second, a brush wipe.
+// Adapted from ClaudeAnimationBase (MIT, John Heibel).
+// Render on twos: node render.mjs --dir videos/_brush --dur 4 --fps 24 --sub 1
+// Shot A (0-2 s): an ink sun draws itself, a wash fills it, rays tick out. Brush wipe, cut at 2 s under full cover.
+// Shot B (2-4 s): a painted hill, a dry-brush horizon and a bird doodle drawn in.
+import { p5film } from '/lib/p5film.js';
+import { brush } from '/lib/p5brush.js';
+import { spring, clamp } from '/lib/motion.js';
+
+const PAL = { paper: '#F3EBDC', ink: '#2B2233', clay: '#D97757', clayDk: '#A84D33', cream: '#FFF5E2' };
+const DW = 1920, DH = 1080;           // design space; everything is laid out at 1920x1080 and scaled by S
+const BOIL = 12, CUT = 2;
+const TURN = Math.PI * 2;
+window.hardCuts = [CUT];
+
+let p, S = 1, W = DW, H = DH, BOILN = 0, paperG, grainG;
+const lerp = (a, b, k) => a + (b - a) * k;
+const soft = (t, k = 60) => spring(t, k, 2 * Math.sqrt(k));   // critically damped: no overshoot
+const onTwos = (t) => Math.floor(t * BOIL + 1e-6) / BOIL;     // hold each drawing for two frames at 24 fps
+const hash = (i) => { const x = Math.sin(i * 127.1 + 311.7) * 43758.5453; return x - Math.floor(x); };
+const jit = (a) => (p.random() * 2 - 1) * a;
+// Each boil drawing holds until the next one, so an element must draw the same way until then. Restart the random
+// stream from the boil frame and a stable key before every element, so one element's randomness never shifts another's.
+const boilSeed = (key) => { let h = 2166136261; for (const c of key + '|' + BOILN) h = Math.imul(h ^ c.charCodeAt(0), 16777619); p.randomSeed(h >>> 0); };
+
+// ---------- geometry (design units) ----------
+function ellPts(cx, cy, rx, ry, n = 28, j = 0) {
+  const o = []; for (let i = 0; i < n; i++) { const a = i / n * TURN; o.push([cx + Math.cos(a) * rx + jit(j), cy + Math.sin(a) * ry + jit(j)]); } return o;
+}
+// Catmull-Rom through the points, n samples per span.
+function through(P, n = 8) {
+  if (P.length < 3) return P.slice();
+  const o = [];
+  for (let i = 0; i < P.length - 1; i++) {
+    const p0 = P[Math.max(0, i - 1)], p1 = P[i], p2 = P[i + 1], p3 = P[Math.min(P.length - 1, i + 2)];
+    for (let k = 0; k < n; k++) {
+      const u = k / n, u2 = u * u, u3 = u2 * u;
+      o.push([0, 1].map((d) => .5 * (2 * p1[d] + (p2[d] - p0[d]) * u + (2 * p0[d] - 5 * p1[d] + 4 * p2[d] - p3[d]) * u2 + (3 * p1[d] - p0[d] - 3 * p2[d] + p3[d]) * u3)));
+    }
+  }
+  o.push(P[P.length - 1]);
+  return o;
+}
+// The first k (0..1) of a sampled path: a line that draws itself.
+const head = (C, k) => C.slice(0, Math.max(0, Math.round(C.length * clamp(k))));
+
+// ---------- paint ----------
+// p5.brush loses strokes drawn far from the origin under a scaled matrix, so every shape is drawn around its own centre.
+function centred(pts, fn) {
+  if (!pts.length) return;
+  let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+  for (const [x, y] of pts) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  p.push(); p.translate(cx * S, cy * S); fn(pts.map(([x, y]) => [(x - cx) * S, (y - cy) * S])); p.pop();
+}
+// One call, one painted shape: optional flat wash, watercolour fill, hatch and ink outline.
+function paint(pts, o = {}) {
+  centred(pts, (P) => {
+    if (o.wash || o.fill || o.hatch) {
+      if (o.wash) brush.wash(o.wash, o.washOp ?? 255); else brush.noWash();
+      if (o.fill) { brush.fill(o.fill, o.fillOp ?? 170); brush.fillBleed(o.bleed ?? .1); brush.fillTexture(o.tex ?? .4, o.border ?? .35); } else brush.noFill();
+      if (o.hatch) { brush.hatch(o.hatch.d * S, o.hatch.a, o.hatch.o || { rand: .15 }); brush.hatchStyle(o.hatch.b || 'HB', o.hatch.c || PAL.ink, o.hatch.w || 1); } else brush.noHatch();
+      brush.noStroke();
+      brush.polygon(P);
+    }
+    if (o.ink !== null) {
+      brush.noWash(); brush.noFill(); brush.noHatch(); brush.set(o.br || 'ink', o.ink || PAL.ink, o.sw ?? 1);
+      brush.beginShape(0); for (const v of P) brush.vertex(v[0], v[1]); brush.endShape(true);
+    }
+  });
+}
+function inkLine(pts, sw = 1, col = PAL.ink, br = 'ink', curv = .5) {
+  if (pts.length < 2) return;
+  centred(pts, (P) => { brush.noFill(); brush.noWash(); brush.noHatch(); brush.set(br, col, sw); brush.spline(P, curv); });
+}
+// p5.brush defers strokes into a mask layer; a tiny off-screen fill forces it to composite now, so the paint lands
+// under whatever p5 draws next (the grain).
+function flushBrush() {
+  p.push(); p.resetMatrix(); p.translate(-W / 2, -H / 2);
+  brush.noStroke(); brush.noHatch(); brush.noWash(); brush.fill('#000000', 1); brush.fillBleed(0); brush.fillTexture(0, 0);
+  brush.polygon([[-50, -50], [-40, -50], [-40, -40]]); brush.noFill(); p.pop();
+}
+
+// ---------- paper and grain (built once, seeded) ----------
+function lcg(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function makePaper() {
+  const g = p.createGraphics(W, H); g.pixelDensity(1); const c = g.drawingContext, rnd = lcg(11);
+  c.fillStyle = PAL.paper; c.fillRect(0, 0, W, H);
+  for (let i = 0; i < 70; i++) {
+    const x = rnd() * W, y = rnd() * H, r = (120 + rnd() * 380) * S, gr = c.createRadialGradient(x, y, 0, x, y, r), a = .045 * rnd();
+    gr.addColorStop(0, `rgba(160,125,80,${a})`); gr.addColorStop(1, 'rgba(160,125,80,0)'); c.fillStyle = gr; c.fillRect(x - r, y - r, 2 * r, 2 * r);
+  }
+  c.lineWidth = 1;
+  for (let i = 0; i < 1400 * S * S; i++) {
+    const x = rnd() * W, y = rnd() * H, l = (6 + rnd() * 26) * S, a = rnd() * TURN;
+    c.strokeStyle = `rgba(110,88,60,${.035 + rnd() * .06})`; c.beginPath(); c.moveTo(x, y);
+    c.quadraticCurveTo(x + Math.cos(a + .6) * l * .5, y + Math.sin(a + .6) * l * .5, x + Math.cos(a) * l, y + Math.sin(a) * l); c.stroke();
+  }
+  return g;
+}
+// Static grain and vignette, multiplied over the painted frame so the pigment sits in the paper.
+function makeGrain() {
+  const g = p.createGraphics(W, H); g.pixelDensity(1); const c = g.drawingContext, rnd = lcg(5);
+  const id = c.createImageData(W, H), d = id.data;
+  for (let i = 0; i < d.length; i += 4) { const v = 255 - (rnd() < .55 ? rnd() * rnd() * 34 : 0); d[i] = v; d[i + 1] = v - 1; d[i + 2] = v - 3; d[i + 3] = 255; }
+  c.putImageData(id, 0, 0);
+  const v = c.createRadialGradient(W / 2, H / 2, H * .45, W / 2, H / 2, H * 1.05);
+  v.addColorStop(0, 'rgba(255,255,255,0)'); v.addColorStop(1, 'rgba(120,95,70,.35)'); c.fillStyle = v; c.fillRect(0, 0, W, H);
+  return g;
+}
+
+// ---------- shot A: a sun draws itself ----------
+const SUN = [760, 520, 210];
+function shotA(t) {
+  const [cx, cy, r] = SUN;
+  const line = soft(t, 30), body = soft(t - .7, 45);
+  // Wash first so the ink sits on top. It grows from the centre once the outline has closed most of the way.
+  if (body > .01) {
+    boilSeed('sun-wash');
+    paint(ellPts(cx, cy, r * .92 * body, r * .92 * body, 30, 6), { wash: PAL.clay, washOp: 200, fill: PAL.clayDk, fillOp: 60, bleed: .25, tex: .6, ink: null });
+  }
+  // The outline: one loop and a little over, so the brush end tucks in like a hand-drawn circle.
+  boilSeed('sun-line');
+  const loop = []; for (let i = 0; i <= 26; i++) { const a = -2.2 + i / 24 * TURN; loop.push([cx + Math.cos(a) * r + jit(5), cy + Math.sin(a) * r * .97 + jit(5)]); }
+  inkLine(head(through(loop), line), 1.1);
+  // Eight rays tick out one after another, each its own element with its own boil key.
+  for (let i = 0; i < 8; i++) {
+    const k = soft(t - 1.0 - i * .07, 140); if (k < .02) continue;
+    boilSeed('ray' + i);
+    const a = i / 8 * TURN - .3, r0 = r + 50, r1 = r0 + (90 + 30 * hash(i)) * k;
+    inkLine([[cx + Math.cos(a) * r0 + jit(3), cy + Math.sin(a) * r0 + jit(3)], [cx + Math.cos(a) * r1 + jit(4), cy + Math.sin(a) * r1 + jit(4)]], .9, PAL.ink, 'ink', 0);
+  }
+  // A spiral doodle beside it, drawn with the fine pen.
+  boilSeed('spiral');
+  const sp = []; for (let i = 0; i <= 36; i++) { const a = i / 36 * TURN * 2.2, rr = 18 + i * 3.4; sp.push([1300 + Math.cos(a) * rr + jit(3), 420 + Math.sin(a) * rr + jit(3)]); }
+  inkLine(head(through(sp, 4), soft(t - .55, 40)), .8, PAL.ink, 'inkfine');
+}
+
+// ---------- shot B: a hill and a bird ----------
+function shotB(t) {
+  const hill = soft(t - .05, 50), horizon = soft(t - .25, 35), bird = soft(t - .7, 40);
+  boilSeed('hill');
+  const rise = lerp(260, 0, hill);
+  paint(ellPts(980, 1160 + rise, 1250, 470, 40, 4), { wash: PAL.clay, washOp: 220, fill: PAL.clayDk, fillOp: 80, bleed: .1, tex: .6, ink: PAL.ink, sw: 1,
+    hatch: { d: 26, a: .6, o: { rand: .3, gradient: .4 }, b: 'HB', c: PAL.clayDk, w: .8 } });
+  boilSeed('horizon');
+  const hz = []; for (let i = 0; i <= 8; i++) hz.push([lerp(120, 1800, i / 8), 760 + Math.sin(i * 1.3) * 10 + jit(4)]);
+  inkLine(head(through(hz), horizon), .6, PAL.clayDk, 'dry', .5);
+  // The bird is two arcs: the left wing, then the right one.
+  boilSeed('bird');
+  const bx = 1360, by = 330;
+  const wingL = [[bx - 120, by - 10 + jit(4)], [bx - 60, by - 55 + jit(4)], [bx, by + jit(3)]];
+  const wingR = [[bx, by + jit(3)], [bx + 55, by - 60 + jit(4)], [bx + 130, by - 25 + jit(4)]];
+  inkLine(head(through(wingL), bird * 2), 1.1);
+  inkLine(head(through(wingR), bird * 2 - 1), 1.1);
+}
+
+// ---------- brush wipe ----------
+// Fat paint strokes sweep in to cover the frame before the cut, then drag off after it. Springs drive each stroke
+// (critically damped, staggered), and the cover springs start early enough to be fully across at the cut.
+function brushWipe(t, cut, cols = [PAL.clayDk, PAL.clay]) {
+  const n = 5, bh = (DH + 420) / n + 40;
+  p.push(); p.translate(DW / 2 * S, DH / 2 * S); p.rotate(-.1); p.translate(-DW / 2 * S, -DH / 2 * S);
+  for (let i = 0; i < n; i++) {
+    const d = [0, .07, .03, .09, .05][i];
+    const inK = soft(t - (cut - .5) - d, 200), outK = soft(t - cut - d, 120);
+    const x0 = lerp(-300, DW + 400, outK), x1 = lerp(-300, DW + 400, inK);
+    if (x1 - x0 < 30 || outK > .995) continue;
+    boilSeed('wipe' + i);
+    const y0 = -230 + i * (DH + 420) / n, rag = (k) => 40 + 50 * hash(i * 31 + k) + jit(12), pts = [];
+    for (let k = 0; k <= 8; k++) pts.push([lerp(x0, x1, k / 8), y0 + Math.sin(k * .9 + i) * 14 + jit(5)]);
+    for (let k = 1; k < 9; k++) pts.push([x1 + rag(k) - 40, y0 + bh * k / 9]);
+    for (let k = 8; k >= 0; k--) pts.push([lerp(x0, x1, k / 8), y0 + bh + Math.sin(k * .8 + i * 2) * 14 + jit(5)]);
+    if (outK > .01) for (let k = 8; k > 0; k--) pts.push([x0 - rag(k + 20) + 40, y0 + bh * k / 9]);
+    paint(pts, { wash: i % 2 ? cols[0] : cols[1], washOp: 255, fill: i % 2 ? cols[1] : cols[0], fillOp: 70, bleed: .05, tex: .8, border: .6, ink: null,
+      hatch: { d: 44, a: 0, o: { rand: .6, gradient: .5 }, b: 'charcoal', c: i % 2 ? cols[1] : PAL.cream, w: .8 } });
+  }
+  p.pop();
+}
+
+p5film({
+  seed: 3,
+  webgl: true,
+  setup: (pp) => {
+    p = pp; W = p.width; H = p.height; S = W / DW;
+    brush.instance(p);
+    brush.scaleBrushes(5 * S);
+    brush.add('ink', { type: 'default', weight: 5, scatter: .25, sharpness: .8, grain: 40, opacity: 235, spacing: .2, pressure: [1.15, .75], rotate: 'natural', noise: .15 });
+    brush.add('inkfine', { type: 'default', weight: 2.6, scatter: .15, sharpness: .85, grain: 40, opacity: 230, spacing: .2, pressure: [1.1, .8], rotate: 'natural', noise: .1 });
+    brush.add('dry', { type: 'default', weight: 14, scatter: 3, sharpness: .3, grain: 6, opacity: 90, spacing: .6, pressure: [1, .6], rotate: 'natural', noise: .4 });
+    paperG = makePaper(); grainG = makeGrain();
+  },
+  draw: (pp, t) => {
+    const T = onTwos(t);
+    BOILN = Math.floor(t * BOIL + 1e-6);
+    p.push(); p.translate(-W / 2, -H / 2);
+    p.image(paperG, 0, 0);
+    if (T < CUT) shotA(T); else shotB(T - CUT);
+    if (T > CUT - .6 && T < CUT + 1) brushWipe(T, CUT);
+    flushBrush();
+    p.blendMode(p.MULTIPLY); p.image(grainG, 0, 0); p.blendMode(p.BLEND);
+    p.pop();
+  },
+});
+</script>
